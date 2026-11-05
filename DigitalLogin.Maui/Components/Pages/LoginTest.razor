@@ -1,0 +1,283 @@
+@page "/"
+@inject AgyoAuthClient Auth
+@inject LoginRunHistory RunHistory
+@inject LoginSessionState Session
+@inject IJSRuntime JS
+
+<PageTitle>Login test · DigitalLogin</PageTitle>
+
+<h1>Login test</h1>
+<p class="lede">
+    Runs the two-call sign-in from the Bruno collection: request a nonce, derive the digest from the client id
+    and secret, then exchange it for an access token.
+</p>
+
+<div class="grid-2">
+    <section class="panel">
+        <h2>Connection</h2>
+        <div class="form-grid">
+            <label class="field span-2">
+                <span class="field-label">Environment URL <em>agyoUrl</em></span>
+                <input class="form-input" @bind="_form.BaseUrl" spellcheck="false" />
+            </label>
+            <label class="field">
+                <span class="field-label">Client ID <em>Id</em></span>
+                <input class="form-input" @bind="_form.Id" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="field">
+                <span class="field-label">Company VAT <em>CompanyVat</em></span>
+                <input class="form-input" @bind="_form.CompanyVat" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="field span-2">
+                <span class="field-label">Secret</span>
+                <input class="form-input" type="password" @bind="Session.Secret" autocomplete="new-password" />
+            </label>
+        </div>
+
+        <details class="section-gap headers-section">
+            <summary><h2>Request headers</h2></summary>
+            <div class="form-grid">
+                <label class="field">
+                    <span class="field-label">X-App-Name</span>
+                    <input class="form-input" @bind="_form.AppName" spellcheck="false" />
+                </label>
+                <label class="field">
+                    <span class="field-label">X-App-Version</span>
+                    <input class="form-input" @bind="_form.AppVersion" spellcheck="false" />
+                </label>
+                <label class="field span-2">
+                    <span class="field-label">User-Agent</span>
+                    <input class="form-input" @bind="_form.UserAgent" spellcheck="false" />
+                </label>
+            </div>
+        </details>
+
+        @if (_validation is not null)
+        {
+            <p class="form-error">@_validation</p>
+        }
+
+        <div class="actions">
+            <RadzenButton Text="Run login test" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+                          IsBusy="_busy" Disabled="_busy" Click="@(_ => RunAsync())" />
+            <span class="muted small">The secret is kept in memory only and is not saved.</span>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Flow</h2>
+
+        @if (_run is null)
+        {
+            <p class="muted">Run a test to see each step here.</p>
+        }
+        else
+        {
+            <ol class="steps">
+                @foreach (var s in _run.Steps)
+                {
+                    <li class="step step-@StepClass(s.Status)">
+                        <span class="step-icon" aria-hidden="true"><RadzenIcon Icon="@StepIcon(s.Status)" /></span>
+                        <div class="step-body">
+                            <div class="step-head">
+                                <b>@s.Name</b>
+                                @if (s.HttpStatus is { } httpCode)
+                                {
+                                    <span class="pill">HTTP @httpCode</span>
+                                }
+                                @if (s.Status is AgyoStepStatus.Succeeded or AgyoStepStatus.Failed)
+                                {
+                                    <span class="step-time">@Ms(s.Duration)</span>
+                                }
+                            </div>
+                            <div class="step-url mono">@s.Method @s.Url</div>
+                            @if (!string.IsNullOrEmpty(s.Detail))
+                            {
+                                <div class="step-detail">@s.Detail</div>
+                            }
+                            @if (!string.IsNullOrEmpty(s.ResponseBody))
+                            {
+                                <details>
+                                    <summary>Response</summary>
+                                    <pre class="code-block">@s.ResponseBody</pre>
+                                </details>
+                            }
+                        </div>
+                    </li>
+                }
+            </ol>
+
+            @if (!_run.Finished)
+            {
+                <p class="muted small">Running…</p>
+            }
+            else if (_run.Succeeded)
+            {
+                <div class="result result-ok">
+                    <div class="result-title"><RadzenIcon Icon="verified" /> Login succeeded in @Ms(_run.Duration)</div>
+                    <div class="kv">
+                        <span>Access token</span>
+                        <code class="mono token">@(_showToken ? _run.AccessToken : AgyoAuthClient.Mask(_run.AccessToken))</code>
+                    </div>
+                    <div class="kv-actions">
+                        <button class="link-btn" @onclick="() => _showToken = !_showToken">@(_showToken ? "Hide" : "Reveal")</button>
+                        <button class="link-btn" @onclick="CopyTokenAsync">Copy token</button>
+                        @if (_copied)
+                        {
+                            <span class="ok-text">Copied</span>
+                        }
+                    </div>
+                    <div class="kv">
+                        <span>Request id</span>
+                        <code class="mono">@_run.RequestId</code>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="result result-error">
+                    <div class="result-title"><RadzenIcon Icon="error" /> Login failed at @_run.FailedStep</div>
+                    <pre class="code-block">@_run.Error</pre>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+@code {
+    /// <summary>The non-secret fields remembered between runs (localStorage in the WebView).</summary>
+    public sealed class FormState
+    {
+        public string BaseUrl { get; set; } = "https://b2b-auth-service-test.agyo.io";
+        public string Id { get; set; } = "";
+        public string CompanyVat { get; set; } = "";
+        public string AppName { get; set; } = "DigitalLogin";
+        public string AppVersion { get; set; } = "1.0.0";
+        public string UserAgent { get; set; } = "DigitalLogin/1.0";
+    }
+
+    private const string StorageKey = "digitallogin.form";
+
+    private FormState _form = new();
+    private AgyoLoginRun? _run;
+    private bool _busy;
+    private bool _showToken;
+    private bool _copied;
+    private string? _validation;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("digitalLoginStore.get", StorageKey);
+            var saved = string.IsNullOrWhiteSpace(json)
+                ? null
+                : System.Text.Json.JsonSerializer.Deserialize<FormState>(json);
+            if (saved is not null)
+            {
+                _form = saved;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is Microsoft.JSInterop.JSException or System.Text.Json.JsonException)
+        {
+            // Storage unavailable or corrupt: keep the defaults.
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        _validation = Validate();
+        if (_validation is not null) return;
+
+        var options = new AgyoOptions
+        {
+            BaseUrl = _form.BaseUrl.Trim(),
+            Id = _form.Id.Trim(),
+            Secret = Session.Secret,
+            CompanyVat = _form.CompanyVat.Trim(),
+            UserAgent = _form.UserAgent.Trim(),
+            AppName = _form.AppName.Trim(),
+            AppVersion = _form.AppVersion.Trim(),
+        };
+
+        _busy = true;
+        _showToken = false;
+        _copied = false;
+        var run = new AgyoLoginRun();
+        _run = run;
+        await SaveFormAsync();
+
+        try
+        {
+            await Auth.RunAsync(options, run, _ => StateHasChanged());
+        }
+        catch (ArgumentException ex)
+        {
+            // Rejected before any request was sent (e.g. a malformed URL).
+            _validation = ex.Message;
+            _run = null;
+        }
+        finally
+        {
+            _busy = false;
+            if (run.Finished)
+                RunHistory.Add(LoginRunRecord.From(options, run));
+        }
+    }
+
+    private string? Validate()
+    {
+        if (!Uri.TryCreate(_form.BaseUrl.Trim(), UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            return "Environment URL must be an absolute http(s) URL.";
+        if (string.IsNullOrWhiteSpace(_form.Id))
+            return "Client ID is required.";
+        if (string.IsNullOrEmpty(Session.Secret))
+            return "Secret is required.";
+        return null;
+    }
+
+    private async Task SaveFormAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("digitalLoginStore.set", StorageKey,
+                System.Text.Json.JsonSerializer.Serialize(_form));
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            // Not remembering the form is a convenience loss, not a failure.
+        }
+    }
+
+    private async Task CopyTokenAsync()
+    {
+        if (_run?.AccessToken is null) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("digitalLoginStore.copy", _run.AccessToken);
+            _copied = true;
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            _copied = false;
+        }
+    }
+
+    private static string StepIcon(AgyoStepStatus status) => status switch
+    {
+        AgyoStepStatus.Running => "progress_activity",
+        AgyoStepStatus.Succeeded => "check_circle",
+        AgyoStepStatus.Failed => "error",
+        AgyoStepStatus.Skipped => "remove_circle_outline",
+        _ => "radio_button_unchecked",
+    };
+
+    private static string StepClass(AgyoStepStatus status) => status.ToString().ToLowerInvariant();
+
+    private static string Ms(TimeSpan t) => $"{t.TotalMilliseconds:0} ms";
+}

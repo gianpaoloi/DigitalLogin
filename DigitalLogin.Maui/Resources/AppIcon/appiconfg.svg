@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Padlock: the "sign in" symbol. Kept inside the central safe zone so launcher masks don't clip it. -->
+  <path d="M170 236 V178 a86 86 0 0 1 172 0 V236" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round"/>
+  <rect x="132" y="232" width="248" height="186" rx="30" fill="#ffffff"/>
+  <circle cx="256" cy="308" r="24" fill="#8a63f4"/>
+  <rect x="245" y="308" width="22" height="52" rx="11" fill="#8a63f4"/>
+</svg>

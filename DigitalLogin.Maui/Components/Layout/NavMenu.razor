@@ -1,0 +1,57 @@
+@inject IJSRuntime JS
+@inject NotificationService Notifications
+
+<div class="top-row navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">DigitalLogin</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <h2 class="nav-group">Authentication</h2>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="nav-icon" aria-hidden="true"><RadzenIcon Icon="vpn_key" /></span> Login test
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="history">
+                <span class="nav-icon" aria-hidden="true"><RadzenIcon Icon="history" /></span> Run history
+            </NavLink>
+        </div>
+    </nav>
+
+    <div class="nav-version">
+        <span class="nav-version-text">v@(AppVersion)</span>
+        <button type="button" class="nav-version-copy" @onclick="CopyVersion" title="Copy version">
+            <span aria-hidden="true">&#x29C9;</span>
+        </button>
+    </div>
+</div>
+
+@code {
+    private static string AppVersion =>
+        typeof(NavMenu).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+
+    private async Task CopyVersion()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("digitalLoginStore.copy", AppVersion);
+            Notifications.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "Copied",
+                Detail = AppVersion,
+                Duration = 3000,
+            });
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            // No clipboard available: nothing else to do, the version is on screen.
+        }
+    }
+}

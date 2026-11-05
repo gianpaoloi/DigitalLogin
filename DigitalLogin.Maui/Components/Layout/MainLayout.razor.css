@@ -1,0 +1,143 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+.sidebar {
+    background: #0f1021;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.top-row {
+    background-color: #17182f;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    justify-content: flex-end;
+    gap: 12px;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+}
+
+    .top-row ::deep a { color: #9aa3b2; }
+    .top-row ::deep a:hover { color: #21d4fd; }
+
+    /* Icon + label, so the glyph sits on the text baseline instead of above it. */
+    .top-row ::deep a {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    /* The Radzen stylesheet pins .rzi to 1.5rem with literal values rather than the
+       --rz-icon-size custom property, so this has to override all four. */
+    .top-link-icon ::deep .rzi {
+        font-size: 1.1rem;
+        line-height: 1.1rem;
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+.nav-toggle {
+    margin-right: auto;
+    background: transparent;
+    border: none;
+    color: #f5f7fb;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s ease, color .2s ease;
+}
+
+    .nav-toggle:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #a689f7;
+    }
+
+    .nav-toggle svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .top-row ::deep a, .top-row ::deep .btn-link {
+        white-space: nowrap;
+        margin-left: 1.5rem;
+        text-decoration: none;
+    }
+
+    .top-row ::deep a.active {
+        color: #f5f7fb;
+    }
+
+    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
+        text-decoration: underline;
+    }
+
+    .top-row ::deep a:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+@media (max-width: 640.98px) {
+    .top-row {
+        justify-content: space-between;
+    }
+
+    .top-row ::deep a, .top-row ::deep .btn-link {
+        margin-left: 0;
+    }
+}
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        /* Narrow rail, but wide enough for the longest label on one line: at 190px "Network Live
+           Watch" wrapped onto three lines and pushed its icon off on its own. NavMenu.razor.css
+           trims the brand and the nav-item padding to match, and keeps the labels on one line. */
+        width: 230px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        overflow: hidden;
+        transition: width .25s ease;
+    }
+
+    .page.nav-collapsed .sidebar {
+        width: 0;
+        border-right: none;
+    }
+
+    /* let the content (and its grids) use the full width once the menu is hidden */
+    .page.nav-collapsed .content {
+        max-width: none;
+    }
+
+    .top-row {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .top-row.auth ::deep a:first-child {
+        flex: 1;
+        text-align: right;
+        width: 0;
+    }
+
+    .top-row, article {
+        padding-left: 2rem !important;
+        padding-right: 1.5rem !important;
+    }
+}
+

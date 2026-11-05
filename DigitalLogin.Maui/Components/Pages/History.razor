@@ -1,0 +1,90 @@
+@page "/history"
+@inject LoginRunHistory RunHistory
+@implements IDisposable
+
+<PageTitle>Run history · DigitalLogin</PageTitle>
+
+<div class="page-head">
+    <h1>Run history</h1>
+    <RadzenButton Text="Clear history" Icon="delete_sweep" ButtonStyle="ButtonStyle.Secondary"
+                  Variant="Variant.Outlined" Disabled="@(_runs.Count == 0)" Click="@(_ => RunHistory.Clear())" />
+</div>
+
+<p class="lede">Every login test run, newest first. Stored in a local SQLite database (%LOCALAPPDATA%\DigitalLogin\history.db); the newest 200 runs are kept.</p>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-value">@_runs.Count</div>
+        <div class="card-label">Runs</div>
+    </div>
+    <div class="card card-ok">
+        <div class="card-value">@_runs.Count(r => r.Succeeded)</div>
+        <div class="card-label">Succeeded</div>
+    </div>
+    <div class="card card-error">
+        <div class="card-value">@_runs.Count(r => !r.Succeeded)</div>
+        <div class="card-label">Failed</div>
+    </div>
+</div>
+
+@if (_runs.Count == 0)
+{
+    <p class="muted">No runs yet. Run a login test and it will appear here.</p>
+}
+else
+{
+    <div class="panel table-panel">
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Started</th>
+                    <th>Environment</th>
+                    <th>Client ID</th>
+                    <th>VAT</th>
+                    <th>Result</th>
+                    <th>Failed at</th>
+                    <th>Duration</th>
+                    <th>Request id</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _runs)
+                {
+                    <tr class="@(r.Succeeded ? null : "row-error")">
+                        <td class="mono">@r.StartedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="mono">@r.BaseUrl</td>
+                        <td class="mono">@r.CompanyId</td>
+                        <td class="mono">@r.CompanyVat</td>
+                        <td>@(r.Succeeded ? "Succeeded" : "Failed")</td>
+                        <td>@FailedAt(r)</td>
+                        <td class="mono">@($"{r.Duration.TotalMilliseconds:0} ms")</td>
+                        <td class="mono">@r.RequestId</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<LoginRunRecord> _runs = [];
+
+    protected override void OnInitialized()
+    {
+        _runs = RunHistory.Runs;
+        RunHistory.Changed += OnHistoryChanged;
+    }
+
+    private void OnHistoryChanged()
+    {
+        _runs = RunHistory.Runs;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static string FailedAt(LoginRunRecord r) =>
+        r.FailedStep is null
+            ? ""
+            : r.FailedHttpStatus is { } code ? $"{r.FailedStep} (HTTP {code})" : r.FailedStep;
+
+    public void Dispose() => RunHistory.Changed -= OnHistoryChanged;
+}

@@ -1,0 +1,275 @@
+/* ============================================================================
+   Look & feel aligned with AlyCE Log Analyzer (dark navy / purple theme).
+   Palette:
+     --bg      #0f1021   app background
+     --panel   #17182f   cards / header / sidebar surfaces
+     --muted   #9aa3b2   secondary text
+     --txt     #f5f7fb   primary text
+     --brand   #8a63f4   purple accent (primary)
+     --fluobrand #21d4fd cyan accent
+   ============================================================================ */
+
+:root {
+    --bg: #0f1021;
+    --panel: #17182f;
+    --panel-2: #1e2038;
+    --muted: #9aa3b2;
+    --txt: #f5f7fb;
+    --brand: #8a63f4;
+    --brand-2: #ff5d8f;
+    --fluobrand: #21d4fd;
+    --ok: #4ade80;
+    --err: #ff8787;
+    --border: rgba(255,255,255,.1);
+    --border-strong: rgba(255,255,255,.18);
+    --shadow: 0 4px 12px rgba(0,0,0,.4);
+
+    /* Re-map the Radzen (material-dark) design tokens onto the palette. */
+    --rz-primary: #8a63f4;
+    --rz-primary-light: #a689f7;
+    --rz-primary-dark: #6f49d8;
+    --rz-secondary: #21d4fd;
+    --rz-body-background-color: #0f1021;
+    --rz-base-background-color: #17182f;
+    --rz-panel-background-color: #17182f;
+    --rz-card-background-color: #17182f;
+    --rz-border-radius: 8px;
+    --rz-text-color: #f5f7fb;
+    --rz-text-secondary-color: #9aa3b2;
+    --rz-border-color: rgba(255,255,255,.1);
+}
+
+html, body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+}
+
+a, .btn-link { color: var(--fluobrand); }
+a:hover { color: var(--brand); }
+
+.btn:focus, .btn:active:focus, .form-control:focus { box-shadow: 0 0 0 2px rgba(138,99,244,.4); }
+
+.content { padding-top: 1.1rem; max-width: 1400px; }
+h1 { font-size: 1.6rem; margin-bottom: .4rem; color: var(--txt); }
+h1:focus { outline: none; }
+h2 { font-size: 1.05rem; margin: 0 0 .6rem; color: var(--txt); }
+.lede { color: var(--muted); margin-bottom: 1rem; max-width: 900px; }
+.muted, .text-muted { color: var(--muted) !important; }
+.small { font-size: .8rem; }
+.mono, code { font-family: Consolas, "Courier New", monospace; }
+code { color: var(--fluobrand); background: rgba(33,212,253,.08); padding: 0 .3rem; border-radius: 4px; }
+.section-gap { margin-top: 1.2rem; }
+
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem;
+    color: white;
+}
+.blazor-error-boundary::after { content: "An error has occurred." }
+
+/* ---------- layout blocks ---------- */
+
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+/* Two panels side by side when there is room for both at a usable width, otherwise stacked. */
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
+.grid-2 > * { min-width: 0; }
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+}
+.table-panel { padding: 0; overflow-x: auto; }
+
+/* ---------- form ---------- */
+
+.form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .7rem .9rem; }
+.form-grid .span-2 { grid-column: span 2; }
+@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .form-grid .span-2 { grid-column: auto; } }
+
+.field { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.field-label { font-size: .78rem; font-weight: 600; color: var(--txt); }
+.field-label em { font-style: normal; font-weight: 400; color: var(--muted); font-size: .72rem; margin-left: .35rem; font-family: Consolas, monospace; }
+
+.form-input {
+    width: 100%;
+    padding: .4rem .55rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-size: .88rem;
+    background: rgba(255,255,255,.08);
+    color: var(--txt);
+}
+.form-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px rgba(138,99,244,.25); }
+
+.form-error { color: var(--err); font-weight: 600; font-size: .85rem; margin: .8rem 0 0; }
+
+.actions { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; margin-top: 1rem; }
+
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fluobrand);
+    font-size: .82rem;
+    cursor: pointer;
+}
+.link-btn:hover { color: var(--brand); text-decoration: underline; }
+.ok-text { color: var(--ok); font-size: .82rem; font-weight: 600; }
+
+/* ---------- flow steps ---------- */
+
+.steps { list-style: none; padding: 0; margin: 0 0 .8rem; display: flex; flex-direction: column; gap: .5rem; }
+.step {
+    display: flex;
+    gap: .7rem;
+    padding: .6rem .8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+.step-icon { flex: 0 0 auto; display: inline-flex; padding-top: .1rem; }
+.step-icon ::deep .rzi { font-size: 1.2rem; width: 1.2rem; height: 1.2rem; line-height: 1.2rem; }
+.step-body { min-width: 0; flex: 1; }
+.step-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .9rem; }
+.step-time { margin-left: auto; color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.step-url { color: var(--muted); font-size: .78rem; overflow-wrap: anywhere; margin-top: .15rem; }
+.step-detail { font-size: .8rem; color: var(--txt); margin-top: .25rem; overflow-wrap: anywhere; }
+
+.step-pending .step-icon { color: #6f7787; }
+.step-running { border-color: rgba(33,212,253,.4); }
+.step-running .step-icon { color: var(--fluobrand); }
+.step-running .step-icon ::deep .rzi { animation: spin 1s linear infinite; }
+.step-succeeded .step-icon { color: var(--ok); }
+.step-failed { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.08); }
+.step-failed .step-icon { color: var(--err); }
+.step-skipped { opacity: .55; }
+.step-skipped .step-icon { color: var(--muted); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pill {
+    display: inline-block;
+    padding: .05rem .45rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 700;
+    background: rgba(138,99,244,.25);
+    color: #d6c8ff;
+    letter-spacing: .02em;
+}
+
+details summary { cursor: pointer; color: var(--muted); font-size: .78rem; margin-top: .35rem; }
+.code-block {
+    background: #0b0c18;
+    color: #e6e6e6;
+    padding: .7rem .8rem;
+    border-radius: 8px;
+    font-size: .78rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    margin: .4rem 0 0;
+}
+
+/* ---------- result ---------- */
+
+.result { border-radius: 8px; padding: .8rem 1rem; border: 1px solid var(--border); margin-top: .4rem; }
+.result-title { display: flex; align-items: center; gap: .45rem; font-weight: 700; margin-bottom: .6rem; }
+.result-title ::deep .rzi { font-size: 1.2rem; }
+.result-ok { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.08); }
+.result-ok .result-title { color: var(--ok); }
+.result-error { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.08); }
+.result-error .result-title { color: var(--err); }
+.result .code-block { margin-top: 0; }
+
+.kv { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; font-size: .85rem; margin-bottom: .35rem; }
+.kv > span:first-child { color: var(--muted); min-width: 6.5rem; }
+.kv-actions { display: flex; align-items: center; gap: 1rem; margin: .2rem 0 .6rem 7.3rem; }
+.token { overflow-wrap: anywhere; }
+
+/* ---------- stat cards ---------- */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .8rem; margin: 1rem 0; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: .8rem 1rem; text-align: center; box-shadow: var(--shadow); }
+.card-value { font-size: 1.7rem; font-weight: 700; color: var(--txt); font-variant-numeric: tabular-nums; }
+.card-label { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.card-ok { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.08); }
+.card-ok .card-value { color: var(--ok); }
+.card-error { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.1); }
+.card-error .card-value { color: var(--err); }
+
+/* ---------- table ---------- */
+
+.log-table { width: 100%; border-collapse: collapse; font-size: .8rem; color: var(--txt); }
+.log-table thead th { position: sticky; top: 0; background: var(--panel-2); text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--border); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); white-space: nowrap; }
+.log-table td { padding: .4rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.log-table tbody tr:hover { background: rgba(255,255,255,.05); }
+.row-error { background: rgba(239,68,68,.08); }
+
+/* ---------- navigation chrome (sidebar + top row) ---------- */
+
+.status-bar-safe-area { display: none; }
+
+.top-row {
+    height: 3.5rem;
+    background-color: #17182f;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+}
+
+.top-row.navbar { display: flex; align-items: center; }
+
+.nav-toggle {
+    background: transparent;
+    border: none;
+    color: #f5f7fb;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s ease, color .2s ease;
+}
+.nav-toggle:hover { background: rgba(255,255,255,.08); color: #a689f7; }
+.nav-toggle svg { width: 22px; height: 22px; }
+
+/* Keep long URLs and tokens from pushing the page wider than the window. */
+main, .content { min-width: 0; }
+
+/* Blazor's unhandled-exception bar: hidden unless the runtime shows it after a real error. */
+#blazor-error-ui {
+    background: #b32121;
+    color: #fff;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+#blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: 0.75rem; top: 0.5rem; }
+
+/* Desktop: the content column takes exactly the space left beside the sidebar. Without this a
+   wide child (a long paragraph or a grid) can push <main> past the window edge. */
+@media (min-width: 641px) {
+    main { width: 0; flex: 1 1 0; min-width: 0; }
+}
+.content { width: 100%; box-sizing: border-box; }
+
+/* Collapsible "Request headers" section: closed by default, heading keeps the section style. */
+.headers-section > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: .4rem; user-select: none; }
+.headers-section > summary::-webkit-details-marker { display: none; }
+.headers-section > summary::before { content: "\25B8"; color: var(--muted); font-size: .85rem; transition: transform .15s ease; display: inline-block; }
+.headers-section[open] > summary::before { transform: rotate(90deg); }
+.headers-section > summary h2 { margin: 0; }
+.headers-section > summary:hover h2 { color: var(--fluobrand); }
+.headers-section[open] > summary { margin-bottom: .6rem; }
