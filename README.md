@@ -87,6 +87,21 @@ dotnet test DigitalLogin.Tests
 4. On success, reveal or copy the token. On failure, the failing step and the service's error body are shown.
 5. Open **Run history** to see past runs.
 
+## Build provenance
+
+The GitHub Actions workflow `.github/workflows/build-and-attest.yml` builds, tests and publishes the Windows app
+(`DigitalLogin-win-x64.zip`), then creates a [GitHub artifact attestation](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
+for the zip with `actions/attest@v4`. The attestation is stored with the repository and records which workflow,
+commit and runner produced the file.
+
+To check a downloaded zip against the attestation:
+
+```powershell
+gh attestation verify DigitalLogin-win-x64.zip -R gianpaoloi/DigitalLogin
+```
+
+The workflow also writes `SHA256SUMS.txt` next to the zip for a plain checksum comparison.
+
 ## Project layout
 
 ```
