@@ -9,6 +9,10 @@ section here, and that section *is* what the release workflow publishes as the r
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [1.0.0] — 2026-11-10
+
 ### Added
 
 - **Login test against the agyo auth service.** The **Login test** page runs the same two-call flow as the
