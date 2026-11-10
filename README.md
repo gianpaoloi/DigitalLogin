@@ -127,3 +127,49 @@ The **Company registry** page finds the company by its VAT number on the Registr
 - The access token is the one from the last successful login test.
 - A single match is set as the workspace ID automatically; with several matches, pick one with "Use as workspace ID".
 - Registry URLs: PROD `https://registry-read.agyo.io`, STAGE `https://registry-read-test.agyo.io`.
+
+## Install and updates
+
+Two downloads are attached to every release:
+
+- **`DigitalLogin-Setup-<version>.exe`** (recommended): installs per user, adds Start-menu entries and installs
+  the WebView2 runtime when it is missing. Installed copies **update themselves**: when a newer release exists,
+  the sidebar shows *Update to vX*. *Download and install* fetches the setup package, checks its SHA256 against
+  the release notes, and runs it. The app restarts on the new version.
+- **`DigitalLogin-<version>-win-x64.zip`** (portable): extract anywhere and run `Launch.bat`. Nothing is
+  installed. It does not update itself, so download the newer ZIP from the releases page.
+
+The update check contacts only `api.github.com`, at most every six hours, and makes no request if it is
+switched off (`UpdateOptions.Enabled`). The installer is only ever downloaded from GitHub over HTTPS.
+
+## Releasing
+
+A release is a version tag on `main`. Pushing the tag runs `.github/workflows/release.yml`, which runs the
+tests, publishes the app, builds `DigitalLogin-Setup-<version>.exe` with Inno Setup and creates the GitHub
+Release. Its notes are the matching section of [CHANGELOG.md](CHANGELOG.md).
+
+1. **Merge everything into `main`** and run the tests: `dotnet test DigitalLogin.Tests/DigitalLogin.Tests.csproj`.
+   The workflow refuses a tag that is not on `main`.
+2. **Write the changes** under `## [Unreleased]` in `CHANGELOG.md`. That section becomes the release notes.
+3. **Set the version** and cut the changelog:
+
+   ```powershell
+   ./set-version.ps1 0.2.0 -WhatIf   # show what would change, write nothing
+   ./set-version.ps1 0.2.0
+   git add -A
+   git commit -m "Set version 0.2.0"
+   ./set-version.ps1 0.2.0 -Tag      # tag the commit above, locally
+   git push; git push origin v0.2.0  # starts the release
+   ```
+
+   `set-version.ps1` updates the csproj (`ApplicationDisplayVersion`, `ApplicationVersion`) and the
+   installer's fallback `MyAppVersion`, and moves *Unreleased* under `## [0.2.0] — <today>`. It writes
+   nothing unless every edit applies. A `v1.0.0-rc1` tag is published as a prerelease.
+
+To build the installer on your own machine, install [Inno Setup 6](https://jrsoftware.org/isinfo.php), then:
+
+```powershell
+dotnet publish DigitalLogin.Maui/DigitalLogin.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 --runtime win-x64 --self-contained -p:PublishReadyToRun=true
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" DigitalLogin.Maui\installer\setup.iss
+# Output: DigitalLogin.Maui\dist\DigitalLogin-Setup-0.1.0.exe
+```

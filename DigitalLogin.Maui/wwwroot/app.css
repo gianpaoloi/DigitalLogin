@@ -107,6 +107,11 @@ code { color: var(--fluobrand); background: rgba(33,212,253,.08); padding: 0 .3r
 }
 .form-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px rgba(138,99,244,.25); }
 
+/* The native dropdown popup of a <select> is drawn by the browser, not by the page. Without a dark
+   color-scheme it paints a white list, and the inherited light text disappears on it. */
+select.form-input { color-scheme: dark; }
+select.form-input option { background: var(--panel-2); color: var(--txt); }
+
 .form-error { color: var(--err); font-weight: 600; font-size: .85rem; margin: .8rem 0 0; }
 
 .actions { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; margin-top: 1rem; }

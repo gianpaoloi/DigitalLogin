@@ -252,3 +252,25 @@
         overflow-y: auto;
     }
 }
+
+/* "Update to vX" row, shown only when GitHub has a newer release. It sits above the version footer,
+   which gives up its auto top margin (see .nav-update + .nav-version). */
+.nav-update {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    width: 100%;
+    padding: .6rem 1rem;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+    color: #8fd19e;
+    font-size: .9rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.nav-update:hover {
+    background-color: rgba(255,255,255,.06);
+}

@@ -1,6 +1,8 @@
 using DigitalLogin.Auth;
 using DigitalLogin.CompanyRegistry;
+using DigitalLogin.Maui.Services;
 using DigitalLogin.Services;
+using DigitalLogin.Updates;
 using DigitalLogin.Workspace;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,6 +47,13 @@ public static class MauiProgram
 		builder.Services.AddSingleton(_ => new LoginRunHistory(historyDb));
 		// Session-only state (the client secret), kept across page navigation. Never persisted.
 		builder.Services.AddSingleton<LoginSessionState>();
+
+		// Update check against this project's GitHub releases. Singleton so GitHub is asked once per run and
+		// every page shares the answer; anonymous API calls are rate limited per IP address.
+		builder.Services.AddSingleton(_ => new UpdateChecker());
+		// This host can update itself: it ships as a per-user Inno Setup package, and re-running that package
+		// silently with /UPDATED=1 is the supported upgrade path.
+		builder.Services.AddSingleton<IUpdateInstaller, WindowsUpdateInstaller>();
 
 		builder.Logging.ClearProviders();
 		builder.Logging.AddDebug();

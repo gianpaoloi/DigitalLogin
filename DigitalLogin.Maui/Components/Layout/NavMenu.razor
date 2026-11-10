@@ -1,5 +1,11 @@
+@using DigitalLogin
+@using DigitalLogin.Updates
+@using DigitalLogin.Maui.Components.Shared
+@using Radzen
 @inject IJSRuntime JS
 @inject NotificationService Notifications
+@inject DialogService Dialogs
+@inject UpdateChecker Updates
 
 <div class="top-row navbar navbar-dark">
     <div class="container-fluid">
@@ -38,28 +44,88 @@
         </div>
     </nav>
 
+    @if (_update is not null)
+    {
+        <button type="button" class="nav-update" @onclick="ShowUpdate"
+                title="@($"Version {_update.Version} is available - click for details")">
+            <span class="nav-icon" aria-hidden="true"><RadzenIcon Icon="system_update_alt" /></span>
+            <span class="nav-update-text">Update to v@(_update.Version)</span>
+        </button>
+    }
+
     <div class="nav-version">
-        <span class="nav-version-text">v@(AppVersion)</span>
+        <a class="nav-version-text" href="@Updates.Options.ReleasesPageUrl" target="_blank" rel="noopener"
+           title="Open the releases page on GitHub">v@(AppVersion.Display)</a>
         <button type="button" class="nav-version-copy" @onclick="CopyVersion" title="Copy version">
             <span aria-hidden="true">&#x29C9;</span>
+        </button>
+        <button type="button" class="nav-version-copy" @onclick="CheckNow" title="Check for updates">
+            <span aria-hidden="true">&#x21BB;</span>
         </button>
     </div>
 </div>
 
 @code {
-    private static string AppVersion =>
-        typeof(NavMenu).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+    private UpdateInfo? _update;
+
+    // Runs after the first render, not in OnInitializedAsync: a slow or offline GitHub must not hold up
+    // the sidebar. The check never throws, so there is nothing to report on failure.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var result = await Updates.CheckAsync();
+        if (!result.IsUpdateAvailable) return;
+
+        _update = result.Release;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ShowUpdate()
+    {
+        if (_update is null) return;
+
+        await Dialogs.OpenAsync<UpdateDialog>($"Version {_update.Version} is available",
+            new Dictionary<string, object> { ["Release"] = _update },
+            new DialogOptions { Width = "640px", CloseDialogOnOverlayClick = false });
+    }
+
+    // Forces a fresh look at GitHub, so the answer is current when the user asks for it.
+    private async Task CheckNow()
+    {
+        var result = await Updates.CheckAsync(force: true);
+
+        if (result.IsUpdateAvailable)
+        {
+            _update = result.Release;
+            await InvokeAsync(StateHasChanged);
+            await ShowUpdate();
+            return;
+        }
+
+        Notifications.Notify(new NotificationMessage
+        {
+            Severity = result.Status == UpdateStatus.UpToDate
+                ? NotificationSeverity.Success
+                : NotificationSeverity.Warning,
+            Summary = result.Status == UpdateStatus.UpToDate ? "Up to date" : "Could not check for updates",
+            Detail = result.Status == UpdateStatus.UpToDate
+                ? $"You are running v{AppVersion.Display}."
+                : result.Message,
+            Duration = 6000,
+        });
+    }
 
     private async Task CopyVersion()
     {
         try
         {
-            await JS.InvokeVoidAsync("digitalLoginStore.copy", AppVersion);
+            await JS.InvokeVoidAsync("digitalLoginStore.copy", AppVersion.Full);
             Notifications.Notify(new NotificationMessage
             {
                 Severity = NotificationSeverity.Success,
                 Summary = "Copied",
-                Detail = AppVersion,
+                Detail = AppVersion.Full,
                 Duration = 3000,
             });
         }

@@ -4,9 +4,9 @@
 **/bin/
 **/obj/
 
-# Release output. Both packaging scripts and Inno Setup write here, and the portable ZIP alone is
-# ~100 MB — easy to commit by accident, and nothing here belongs in the repository.
-/dist/
+# Release output. Inno Setup writes the installer to DigitalLogin.Maui/dist (~80 MB), and nothing
+# in it belongs in the repository.
+**/dist/
 
 # Assembled by the release workflow from CHANGELOG.md and passed to the release as body_path.
 # Only exists during a CI run, or if the notes step is rehearsed locally.
