@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using DigitalLogin.Http;
 
 namespace DigitalLogin.Auth;
 
@@ -120,9 +121,10 @@ public sealed class AgyoAuthClient
     private async Task<string> PostAsync(AgyoStep step, object payload, AgyoOptions options,
         AgyoLoginRun run, CancellationToken ct)
     {
+        var json = JsonSerializer.Serialize(payload);
         using var request = new HttpRequestMessage(HttpMethod.Post, step.Url)
         {
-            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"),
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
         request.Headers.TryAddWithoutValidation("User-Agent", options.UserAgent);
         request.Headers.TryAddWithoutValidation("X-User-ID", options.Id);
@@ -130,6 +132,8 @@ public sealed class AgyoAuthClient
         request.Headers.TryAddWithoutValidation("X-App-Version", options.AppVersion);
         request.Headers.TryAddWithoutValidation("X-Request-ID", run.RequestId);
         request.Headers.TryAddWithoutValidation("X-Correlation-ID", run.CorrelationId);
+
+        step.Curl = CurlFormatter.Format(request, json);
 
         using var response = await _http.SendAsync(request, ct);
         var body = await response.Content.ReadAsStringAsync(ct);

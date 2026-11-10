@@ -1,5 +1,7 @@
 using DigitalLogin.Auth;
+using DigitalLogin.CompanyRegistry;
 using DigitalLogin.Services;
+using DigitalLogin.Workspace;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Radzen;
@@ -21,6 +23,17 @@ public static class MauiProgram
 		// The auth client is stateless apart from its HttpClient, so one shared instance per app is
 		// enough. The timeout bounds each of the two calls; a hung endpoint should fail a test, not stall it.
 		builder.Services.AddSingleton(_ => new AgyoAuthClient(new HttpClient
+		{
+			Timeout = TimeSpan.FromSeconds(30),
+		}));
+
+		// Workspace Read API: same timeout reasoning as the auth client.
+		builder.Services.AddSingleton(_ => new WorkspaceApiClient(new HttpClient
+		{
+			Timeout = TimeSpan.FromSeconds(30),
+		}));
+
+		builder.Services.AddSingleton(_ => new RegistryApiClient(new HttpClient
 		{
 			Timeout = TimeSpan.FromSeconds(30),
 		}));

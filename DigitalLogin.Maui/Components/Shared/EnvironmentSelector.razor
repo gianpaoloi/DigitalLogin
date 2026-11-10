@@ -1,0 +1,22 @@
+<label class="field span-2">
+    <span class="field-label">Environment</span>
+    <select class="form-input" @onchange="OnChanged">
+        @foreach (var env in AgyoEnvironment.All)
+        {
+            <option value="@env.Name" selected="@(env.Name == Session.Environment.Name)">@env.Name</option>
+        }
+    </select>
+    <span class="muted small mono">Login: @Session.Environment.LoginBaseUrl</span>
+    <span class="muted small mono">Workspace: @Session.Environment.WorkspaceBaseUrl</span>
+    <span class="muted small mono">Registry: @Session.Environment.RegistryBaseUrl</span>
+</label>
+
+@code {
+    [Inject] private LoginSessionState Session { get; set; } = default!;
+
+    private void OnChanged(ChangeEventArgs e)
+    {
+        var picked = AgyoEnvironment.All.FirstOrDefault(env => env.Name == e.Value?.ToString());
+        if (picked is not null) Session.Environment = picked;
+    }
+}

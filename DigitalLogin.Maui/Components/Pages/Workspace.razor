@@ -1,0 +1,419 @@
+@page "/workspace"
+@inject WorkspaceApiClient Workspaces
+@inject RegistryApiClient Registries
+@inject NotificationService Notifications
+@inject LoginSessionState Session
+@inject IJSRuntime JS
+
+<PageTitle>Workspace · DigitalLogin</PageTitle>
+
+<h1>Workspace</h1>
+<p class="lede">
+    Reads a workspace from the Workspace Read API (<code>GET /api/v2/workspaces/{id}</code>). The access token
+    comes from the last successful login test in this session; paste one here to use another.
+</p>
+
+<div class="grid-2">
+    <section class="panel">
+        <h2>Request</h2>
+        <div class="form-grid">
+            <EnvironmentSelector />
+            <div class="field">
+                <span class="field-label">Company ID <em>from Company registry</em></span>
+                <div style="display:flex;gap:.5rem;align-items:center">
+                    <input class="form-input" style="flex:1" value="@Session.CompanyId" readonly spellcheck="false" />
+                    <RadzenButton Text="Look up company" Icon="search" Size="ButtonSize.Small"
+                                  ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined"
+                                  IsBusy="_lookingUpCompany"
+                                  Disabled="@(_lookingUpCompany || _busy || _finding || string.IsNullOrWhiteSpace(Session.AccessToken))"
+                                  Click="@(_ => LookupCompanyAsync())" />
+                    <RadzenButton Text="Copy cURL" Icon="content_copy" Size="ButtonSize.Small"
+                                  ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined"
+                                  Disabled="@(string.IsNullOrWhiteSpace(Session.AccessToken))"
+                                  Click="@(_ => CopyRegistryCurlAsync())" />
+                </div>
+                <span class="muted small">
+                    @(_companyMessage ?? (string.IsNullOrEmpty(Session.CompanyId)
+                        ? "Not set yet. Look up the company by its VAT."
+                        : "Set from the Company registry lookup."))
+                </span>
+            </div>
+            <div class="field">
+                <span class="field-label">Workspace ID <em>id</em></span>
+                <div style="display:flex;gap:.5rem;align-items:center">
+                    <input class="form-input" style="flex:1" @bind="Session.WorkspaceId" autocomplete="off" spellcheck="false" />
+                    <RadzenButton Text="Find by VAT" Icon="manage_search" Size="ButtonSize.Small"
+                                  ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined"
+                                  IsBusy="_finding"
+                                  Disabled="@(_finding || _busy || string.IsNullOrWhiteSpace(Session.AccessToken))"
+                                  Click="@(_ => FindByVatAsync())" />
+                    <RadzenButton Text="Copy cURL" Icon="content_copy" Size="ButtonSize.Small"
+                                  ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined"
+                                  Disabled="@(string.IsNullOrWhiteSpace(Session.AccessToken))"
+                                  Click="@(_ => CopyMyWorkspacesCurlAsync())" />
+                </div>
+                @if (_finderMessage is not null)
+                {
+                    <span class="muted small">@_finderMessage</span>
+                }
+            </div>
+            <div class="field">
+                <span class="field-label">User ID <em>X-User-ID</em></span>
+                <div style="display:flex;gap:.5rem;align-items:center">
+                    <input class="form-input" style="flex:1" @bind="_form.UserId" autocomplete="off" spellcheck="false" />
+                    <button type="button" class="link-btn" @onclick="NewUserIdAsync">New GUID</button>
+                </div>
+            </div>
+        </div>
+
+        @if (_validation is not null)
+        {
+            <p class="form-error">@_validation</p>
+        }
+
+        <div class="actions">
+            <RadzenButton Text="Load workspace" Icon="search" ButtonStyle="ButtonStyle.Primary"
+                          IsBusy="_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(Session.AccessToken))"
+                          Click="@(_ => LoadAsync())" />
+            <RadzenButton Text="Copy cURL" Icon="content_copy" ButtonStyle="ButtonStyle.Secondary"
+                          Variant="Variant.Outlined"
+                          Disabled="@(string.IsNullOrWhiteSpace(Session.AccessToken))"
+                          Click="@(_ => CopyWorkspaceCurlAsync())" />
+            <span class="muted small">The token is kept in memory only and is not saved.</span>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Workspace</h2>
+
+        @if (_busy)
+        {
+            <p class="muted small">Loading…</p>
+        }
+        else if (_error is not null)
+        {
+            <div class="result result-error">
+                <div class="result-title"><RadzenIcon Icon="error" /> Request failed</div>
+                <pre class="code-block">@_error</pre>
+            </div>
+        }
+        else if (_result is null)
+        {
+            <p class="muted">Load a workspace to see its details here.</p>
+        }
+        else
+        {
+            var w = _result.Workspace;
+            <div class="result result-ok">
+                <div class="result-title"><RadzenIcon Icon="verified" /> Loaded in @Ms(_result.Duration)</div>
+                @Row("Workspace ID", w.Id)
+                @Row("Owner ID", w.OwnerId)
+                @Row("Item ID", w.ItemId)
+                @Row("Classifier", w.Classifier)
+                @Row("Status", w.Status)
+                @Row("Deleted", w.Deleted is { } deleted ? (deleted ? "yes" : "no") : null)
+                @Row("Tax identifier", w.TaxIdentifier)
+                @Row("Country", w.CountryCode)
+                @Row("Base currency", w.BaseCurrency)
+                @Row("Intermediary ID", w.IntermediaryId)
+                @Row("Legal form", w.BusinessLegalForm)
+                @Row("Legal nature", w.BusinessLegalNature)
+                @Row("Established", w.EstablishmentDate)
+                @Row("Expires", w.ExpiryDate)
+                @Row("End date", w.EndDate)
+                @Row("Liquidation date", w.LiquidationDate)
+                @Row("Revision", w.Revision)
+                @Row("Request id", _result.RequestId)
+                <details>
+                    <summary>Response</summary>
+                    <pre class="code-block">@_result.PrettyJson</pre>
+                </details>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    /// <summary>The non-secret fields remembered between visits (localStorage in the WebView).</summary>
+    public sealed class FormState
+    {
+        public string UserId { get; set; } = "";
+    }
+
+    private const string StorageKey = "digitallogin.workspace";
+
+    private FormState _form = new();
+    private WorkspaceResult? _result;
+    private string? _error;
+    private string? _validation;
+    private string? _finderMessage;
+    private string? _companyMessage;
+    private bool _busy;
+    private bool _finding;
+    private bool _lookingUpCompany;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("digitalLoginStore.get", StorageKey);
+            var saved = string.IsNullOrWhiteSpace(json)
+                ? null
+                : System.Text.Json.JsonSerializer.Deserialize<FormState>(json);
+            if (saved is not null)
+            {
+                _form = saved;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is Microsoft.JSInterop.JSException or System.Text.Json.JsonException)
+        {
+            // Storage unavailable or corrupt: keep the defaults.
+        }
+    }
+
+    private async Task LookupCompanyAsync()
+    {
+        _companyMessage = null;
+        _validation = null;
+        _lookingUpCompany = true;
+
+        try
+        {
+            var result = await Registries.FindByVatAsync(new RegistryRequest
+            {
+                BaseUrl = Session.Environment.RegistryBaseUrl,
+                AccessToken = Session.AccessToken,
+                VatNumber = Session.CompanyVat,
+            });
+
+            if (result.Items.Count == 0)
+            {
+                _companyMessage = "No company with this VAT in the registry.";
+            }
+            else
+            {
+                // Same rule as the Company registry page: the first match becomes the company ID.
+                Session.CompanyId = result.Items[0].Id;
+                _companyMessage = result.Items.Count == 1
+                    ? $"Found {result.Items[0].Description ?? "company"}; set as company ID."
+                    : $"Found {result.Items.Count} companies; the first is set as company ID.";
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            _validation = ex.Message;
+        }
+        catch (AgyoApiException ex)
+        {
+            _validation = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _validation = $"Could not reach the service: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            _validation = "The request timed out.";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _validation = $"The response was not valid JSON: {ex.Message}";
+        }
+        finally
+        {
+            _lookingUpCompany = false;
+        }
+    }
+
+    private async Task FindByVatAsync()
+    {
+        _finderMessage = null;
+        _validation = null;
+        _finding = true;
+
+        try
+        {
+            var result = await Workspaces.FindByVatAsync(new MyWorkspacesRequest
+            {
+                BaseUrl = Session.Environment.WorkspaceBaseUrl,
+                AccessToken = Session.AccessToken,
+                VatNumber = Session.CompanyVat,
+                UserId = _form.UserId.Trim(),
+            });
+
+            if (result.Matches.Count == 0)
+            {
+                _finderMessage = $"No workspace with VAT {Session.CompanyVat.Trim()} for this user.";
+            }
+            else
+            {
+                // Same rule as the company lookup: the first match becomes the workspace ID.
+                Session.WorkspaceId = result.Matches[0].Id;
+                _finderMessage = result.Matches.Count == 1
+                    ? $"Found {result.Matches[0].DisplayName ?? "workspace"}; set as workspace ID."
+                    : $"Found {result.Matches.Count} workspaces; the first is set as workspace ID.";
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            _validation = ex.Message;
+        }
+        catch (AgyoApiException ex)
+        {
+            _validation = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _validation = $"Could not reach the service: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            _validation = "The request timed out.";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _validation = $"The response was not valid JSON: {ex.Message}";
+        }
+        finally
+        {
+            _finding = false;
+        }
+    }
+
+    private async Task CopyWorkspaceCurlAsync()
+    {
+        _validation = null;
+        try
+        {
+            var curl = Workspaces.GetWorkspaceCurl(new WorkspaceRequest
+            {
+                BaseUrl = Session.Environment.WorkspaceBaseUrl,
+                AccessToken = Session.AccessToken,
+                WorkspaceId = Session.WorkspaceId.Trim(),
+                UserId = _form.UserId.Trim(),
+            });
+            await CurlClipboard.CopyAsync(JS, Notifications, curl);
+        }
+        catch (ArgumentException ex)
+        {
+            _validation = ex.Message;
+        }
+    }
+
+    private async Task CopyMyWorkspacesCurlAsync()
+    {
+        _validation = null;
+        try
+        {
+            var curl = Workspaces.FindByVatCurl(new MyWorkspacesRequest
+            {
+                BaseUrl = Session.Environment.WorkspaceBaseUrl,
+                AccessToken = Session.AccessToken,
+                VatNumber = Session.CompanyVat,
+                UserId = _form.UserId.Trim(),
+            });
+            await CurlClipboard.CopyAsync(JS, Notifications, curl);
+        }
+        catch (ArgumentException ex)
+        {
+            _validation = ex.Message;
+        }
+    }
+
+    private async Task CopyRegistryCurlAsync()
+    {
+        _validation = null;
+        try
+        {
+            var curl = Registries.FindByVatCurl(new RegistryRequest
+            {
+                BaseUrl = Session.Environment.RegistryBaseUrl,
+                AccessToken = Session.AccessToken,
+                VatNumber = Session.CompanyVat,
+            });
+            await CurlClipboard.CopyAsync(JS, Notifications, curl);
+        }
+        catch (ArgumentException ex)
+        {
+            _validation = ex.Message;
+        }
+    }
+
+    private async Task NewUserIdAsync()
+    {
+        _form.UserId = Guid.NewGuid().ToString();
+        await SaveFormAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _validation = null;
+        _error = null;
+        _result = null;
+        _busy = true;
+        await SaveFormAsync();
+
+        try
+        {
+            _result = await Workspaces.GetWorkspaceAsync(new WorkspaceRequest
+            {
+                BaseUrl = Session.Environment.WorkspaceBaseUrl,
+                AccessToken = Session.AccessToken,
+                WorkspaceId = Session.WorkspaceId.Trim(),
+                UserId = _form.UserId.Trim(),
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            // Rejected before any request was sent.
+            _validation = ex.Message;
+        }
+        catch (AgyoApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Could not reach the service: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "The request timed out.";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _error = $"The response was not valid JSON: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SaveFormAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("digitalLoginStore.set", StorageKey,
+                System.Text.Json.JsonSerializer.Serialize(_form));
+        }
+        catch (Microsoft.JSInterop.JSException)
+        {
+            // Not remembered; the lookup still runs.
+        }
+    }
+
+    private static string Ms(TimeSpan t) => $"{t.TotalMilliseconds:0} ms";
+
+    private static RenderFragment Row(string label, string? value) => __builder =>
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        <div class="kv">
+            <span>@label</span>
+            <code class="mono">@value</code>
+        </div>
+    };
+}

@@ -28,7 +28,7 @@ If a step fails, the run stops there and the later steps are marked as skipped.
 
 | Field | Sent to the service | Notes |
 | --- | --- | --- |
-| Environment URL (`agyoUrl`) | — | Base URL, default `https://b2b-auth-service-test.agyo.io`. |
+| Environment (PROD / STAGE) | — | Chosen once for both pages. Login uses `b2b-auth-service(-test).agyo.io`, workspace uses `workspace-read(-test).agyo.io`. Default STAGE. |
 | Client ID (`Id`) | Yes: body `id` and header `X-User-ID` | Also part of the digest. |
 | Company VAT (`CompanyVat`) | No | Shown in the UI and the history only. |
 | Secret | No (used only to compute the digest) | Kept in memory for the session; never saved to disk. |
@@ -107,3 +107,23 @@ DigitalLogin.sln
 - The digest lowercases both the id and the secret, as the Bruno script does. If the real service treats the
   secret as case-sensitive, this is the first thing to check.
 - The app is unpackaged and Windows-only. The app icon is a placeholder padlock (`Resources/AppIcon/`).
+
+## Workspace info
+
+The **Workspace info** page reads one workspace from the Workspace Read API (`GET {Workspace URL}/api/v2/workspaces/{id}`,
+spec at `https://workspace-read.agyo.io/v3/api-docs`). It shows the main fields and the raw response.
+
+- The bearer token is the access token from the last **successful** login test in this session. It is kept in memory
+  only and can be replaced by pasting another token.
+- The gateway requires an `X-Workspace-ID` header on this route, so the page sends the workspace ID there as well.
+- Only the workspace is shown for now; the other Workspace Read endpoints can be added as more sections.
+
+## Company registry
+
+The **Company registry** page finds the company by its VAT number on the Registry Read API
+(`GET {Registry URL}/api/v3/items?identifier.vatNumber={VAT}&packageType=BASE`, spec in the `registry-read` swagger).
+
+- The VAT is the **Company VAT** typed on the Login test page (shared through the session).
+- The access token is the one from the last successful login test.
+- A single match is set as the workspace ID automatically; with several matches, pick one with "Use as workspace ID".
+- Registry URLs: PROD `https://registry-read.agyo.io`, STAGE `https://registry-read-test.agyo.io`.

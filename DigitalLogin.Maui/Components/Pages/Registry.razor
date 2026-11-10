@@ -1,0 +1,240 @@
+@page "/registry"
+@inject RegistryApiClient Registries
+@inject LoginSessionState Session
+@inject IJSRuntime JS
+@inject NotificationService Notifications
+
+<PageTitle>Company registry · DigitalLogin</PageTitle>
+
+<h1>Company registry</h1>
+<p class="lede">
+    Finds the company in the registry by its VAT number (<code>GET /api/v3/items?identifier.vatNumber=…&amp;packageType=BASE</code>).
+    The item ID found here is the company ID. The workspace ID is found from the VAT on the Workspace info page.
+</p>
+
+<div class="grid-2">
+    <section class="panel">
+        <h2>Lookup</h2>
+        <div class="form-grid">
+            <EnvironmentSelector />
+            <label class="field span-2">
+                <span class="field-label">Company VAT <em>from Login test</em></span>
+                <input class="form-input" @bind="Session.CompanyVat" autocomplete="off" spellcheck="false" />
+                <span class="muted small">
+                    @(string.IsNullOrEmpty(Session.CompanyVat)
+                        ? "No VAT yet. Enter the Company VAT on the Login test page."
+                        : "Shared with the Login test page.")
+                </span>
+            </label>
+        </div>
+
+        @if (_validation is not null)
+        {
+            <p class="form-error">@_validation</p>
+        }
+
+        <div class="actions">
+            <RadzenButton Text="Look up company" Icon="search" ButtonStyle="ButtonStyle.Primary"
+                          IsBusy="_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(Session.AccessToken))"
+                          Click="@(_ => LookupAsync())" />
+            <RadzenButton Text="Copy cURL" Icon="content_copy" ButtonStyle="ButtonStyle.Secondary"
+                          Variant="Variant.Outlined"
+                          Disabled="@(string.IsNullOrWhiteSpace(Session.AccessToken))"
+                          Click="@(_ => CopyCurlAsync())" />
+            <span class="muted small">
+                Company ID: @(string.IsNullOrEmpty(Session.CompanyId) ? "not set" : Session.CompanyId) ·
+                @(string.IsNullOrEmpty(Session.AccessToken)
+                    ? "No access token yet. Run a successful login test first."
+                    : "Uses the access token from the last successful login test.")
+            </span>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Result</h2>
+
+        @if (_busy)
+        {
+            <p class="muted small">Looking up…</p>
+        }
+        else if (_error is not null)
+        {
+            <div class="result result-error">
+                <div class="result-title"><RadzenIcon Icon="error" /> Lookup failed</div>
+                <pre class="code-block">@_error</pre>
+            </div>
+        }
+        else if (_result is null)
+        {
+            <p class="muted">Look up a company to see its registry items here.</p>
+        }
+        else if (_result.Items.Count == 0)
+        {
+            <p class="muted">No company with this VAT number in the registry.</p>
+            <details>
+                <summary>Response</summary>
+                <pre class="code-block">@_result.PrettyJson</pre>
+            </details>
+        }
+        else
+        {
+            <div class="result result-ok">
+                <div class="result-title">
+                    <RadzenIcon Icon="verified" />
+                    @_result.Items.Count of @_result.TotalItems item(s) in @Ms(_result.Duration)
+                </div>
+
+                @if (_autoSelected)
+                {
+                    <p class="ok-text small">The first item is set as the company ID.</p>
+                }
+
+                @foreach (var item in _result.Items)
+                {
+                    var isCompany = string.Equals(item.Id, Session.CompanyId, StringComparison.OrdinalIgnoreCase);
+                    <div class="registry-item">
+                        <div class="step-head">
+                            <b>@(item.Description ?? "(no name)")</b>
+                            @if (item.Deleted == true)
+                            {
+                                <span class="pill">Deleted</span>
+                            }
+                            else if (item.Active is { } active)
+                            {
+                                <span class="pill">@(active ? "Active" : "Inactive")</span>
+                            }
+                        </div>
+                        @Row("Item ID", item.Id)
+                        @Row("Classifier", item.Classifier)
+                        @Row("VAT number", item.VatNumber)
+                        @Row("Tax ID", item.TaxId)
+                        @Row("Tax region", item.TaxRegion)
+                        @Row("Legal form", item.LegalForm)
+                        @foreach (var address in item.Addresses)
+                        {
+                            @Row("Address", address)
+                        }
+                        <div class="actions">
+                            @if (isCompany)
+                            {
+                                <span class="ok-text small">Company ID</span>
+                            }
+                            else
+                            {
+                                <RadzenButton Text="Use as company ID" Icon="arrow_forward" Size="ButtonSize.Small"
+                                              ButtonStyle="ButtonStyle.Secondary" Variant="Variant.Outlined"
+                                              Click="@(_ => UseAsCompany(item))" />
+                            }
+                        </div>
+                    </div>
+                }
+
+                <details>
+                    <summary>Response</summary>
+                    <pre class="code-block">@_result.PrettyJson</pre>
+                </details>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private RegistryResult? _result;
+    private string? _error;
+    private string? _validation;
+    private bool _busy;
+    private bool _autoSelected;
+
+    private async Task LookupAsync()
+    {
+        _validation = null;
+        _error = null;
+        _result = null;
+        _autoSelected = false;
+        _busy = true;
+
+        try
+        {
+            _result = await Registries.FindByVatAsync(new RegistryRequest
+            {
+                BaseUrl = Session.Environment.RegistryBaseUrl,
+                AccessToken = Session.AccessToken,
+                VatNumber = Session.CompanyVat,
+            });
+
+            // The first match becomes the company ID.
+            if (_result.Items.Count > 0)
+            {
+                SetCompany(_result.Items[0]);
+                _autoSelected = true;
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            // Rejected before any request was sent (no token, no VAT, bad URL).
+            _validation = ex.Message;
+        }
+        catch (AgyoApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Could not reach the service: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "The request timed out.";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _error = $"The response was not valid JSON: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // The registry item ID is the company ID only. It is not a workspace ID (the workspace API returns 404 for it).
+    private async Task CopyCurlAsync()
+    {
+        _validation = null;
+        try
+        {
+            var curl = Registries.FindByVatCurl(new RegistryRequest
+            {
+                BaseUrl = Session.Environment.RegistryBaseUrl,
+                AccessToken = Session.AccessToken,
+                VatNumber = Session.CompanyVat,
+            });
+            await CurlClipboard.CopyAsync(JS, Notifications, curl);
+        }
+        catch (ArgumentException ex)
+        {
+            _validation = ex.Message;
+        }
+    }
+
+    private void SetCompany(RegistryItem item)
+    {
+        Session.CompanyId = item.Id;
+    }
+
+    private void UseAsCompany(RegistryItem item)
+    {
+        SetCompany(item);
+        _autoSelected = false;
+    }
+
+    private static string Ms(TimeSpan t) => $"{t.TotalMilliseconds:0} ms";
+
+    private static RenderFragment Row(string label, string? value) => __builder =>
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        <div class="kv">
+            <span>@label</span>
+            <code class="mono">@value</code>
+        </div>
+    };
+}

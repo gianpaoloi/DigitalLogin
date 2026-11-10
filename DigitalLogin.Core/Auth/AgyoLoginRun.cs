@@ -18,6 +18,9 @@ public sealed class AgyoStep
 
     /// <summary>Response body with the access token redacted. Null for local steps.</summary>
     public string? ResponseBody { get; set; }
+
+    /// <summary>The curl command for the request this step sent. Null for local steps or before the call.</summary>
+    public string? Curl { get; set; }
 }
 
 /// <summary>

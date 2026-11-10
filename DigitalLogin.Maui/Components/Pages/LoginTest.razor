@@ -3,6 +3,7 @@
 @inject LoginRunHistory RunHistory
 @inject LoginSessionState Session
 @inject IJSRuntime JS
+@inject NotificationService Notifications
 
 <PageTitle>Login test · DigitalLogin</PageTitle>
 
@@ -16,17 +17,14 @@
     <section class="panel">
         <h2>Connection</h2>
         <div class="form-grid">
-            <label class="field span-2">
-                <span class="field-label">Environment URL <em>agyoUrl</em></span>
-                <input class="form-input" @bind="_form.BaseUrl" spellcheck="false" />
-            </label>
+            <EnvironmentSelector />
             <label class="field">
                 <span class="field-label">Client ID <em>Id</em></span>
                 <input class="form-input" @bind="_form.Id" autocomplete="off" spellcheck="false" />
             </label>
             <label class="field">
                 <span class="field-label">Company VAT <em>CompanyVat</em></span>
-                <input class="form-input" @bind="_form.CompanyVat" autocomplete="off" spellcheck="false" />
+                <input class="form-input" @bind="Session.CompanyVat" autocomplete="off" spellcheck="false" />
             </label>
             <label class="field span-2">
                 <span class="field-label">Secret</span>
@@ -91,6 +89,10 @@
                                 }
                             </div>
                             <div class="step-url mono">@s.Method @s.Url</div>
+                            @if (!string.IsNullOrEmpty(s.Curl))
+                            {
+                                <button type="button" class="link-btn" @onclick="() => CurlClipboard.CopyAsync(JS, Notifications, s.Curl!)">Copy cURL</button>
+                            }
                             @if (!string.IsNullOrEmpty(s.Detail))
                             {
                                 <div class="step-detail">@s.Detail</div>
@@ -148,7 +150,6 @@
     /// <summary>The non-secret fields remembered between runs (localStorage in the WebView).</summary>
     public sealed class FormState
     {
-        public string BaseUrl { get; set; } = "https://b2b-auth-service-test.agyo.io";
         public string Id { get; set; } = "";
         public string CompanyVat { get; set; } = "";
         public string AppName { get; set; } = "DigitalLogin";
@@ -178,6 +179,7 @@
             if (saved is not null)
             {
                 _form = saved;
+                if (string.IsNullOrEmpty(Session.CompanyVat)) Session.CompanyVat = saved.CompanyVat;
                 StateHasChanged();
             }
         }
@@ -194,10 +196,10 @@
 
         var options = new AgyoOptions
         {
-            BaseUrl = _form.BaseUrl.Trim(),
+            BaseUrl = Session.Environment.LoginBaseUrl,
             Id = _form.Id.Trim(),
             Secret = Session.Secret,
-            CompanyVat = _form.CompanyVat.Trim(),
+            CompanyVat = Session.CompanyVat.Trim(),
             UserAgent = _form.UserAgent.Trim(),
             AppName = _form.AppName.Trim(),
             AppVersion = _form.AppVersion.Trim(),
@@ -213,6 +215,7 @@
         try
         {
             await Auth.RunAsync(options, run, _ => StateHasChanged());
+            if (run.Succeeded) Session.AccessToken = run.AccessToken ?? "";
         }
         catch (ArgumentException ex)
         {
@@ -230,9 +233,6 @@
 
     private string? Validate()
     {
-        if (!Uri.TryCreate(_form.BaseUrl.Trim(), UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
-            return "Environment URL must be an absolute http(s) URL.";
         if (string.IsNullOrWhiteSpace(_form.Id))
             return "Client ID is required.";
         if (string.IsNullOrEmpty(Session.Secret))
@@ -242,6 +242,7 @@
 
     private async Task SaveFormAsync()
     {
+        _form.CompanyVat = Session.CompanyVat;
         try
         {
             await JS.InvokeVoidAsync("digitalLoginStore.set", StorageKey,
