@@ -3,6 +3,8 @@
     <PropertyGroup>
         <!-- Windows-only, like the log analyzer it is modelled on. -->
         <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+        <!-- Pins the MAUI and Blazor WebView package line; the SDK default lags the latest 10.0 patch. -->
+        <MauiVersion>10.0.130</MauiVersion>
 
         <OutputType>Exe</OutputType>
         <RootNamespace>DigitalLogin.Maui</RootNamespace>
@@ -41,8 +43,8 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
-        <PackageReference Include="Radzen.Blazor" Version="11.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
+        <PackageReference Include="Radzen.Blazor" Version="12.2.0" />
         <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     </ItemGroup>
 
